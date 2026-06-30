@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gallery</title>
+
+<style>
+  :root {
+    --bg: #111;
+    --text: #f4f4f4;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  header {
+    padding: 36px 20px 28px;
+    text-align: center;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 34px;
+    font-weight: 600;
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+  }
+
+  .slider-wrap {
+    position: relative;
+    margin-bottom: 36px;
+    overflow: hidden;
+    border-radius: 18px;
+    background: #222;
+    user-select: none;
+  }
+
+  .slider-wrap img {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+  }
+
+  /* AFTER is the base image */
+  .base-after {
+    width: 100%;
+  }
+
+  /* BEFORE sits on top and is clipped */
+  .before-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    width: 50%;
+  }
+
+  .before-layer img {
+    height: 100%;
+    width: auto;
+    max-width: none;
+  }
+
+  .divider {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 3px;
+    background: white;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .handle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: white;
+    color: #111;
+    transform: translate(-50%, -50%);
+    display: grid;
+    place-items: center;
+    font-weight: bold;
+    pointer-events: none;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+  }
+
+  .labels {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px;
+    font-size: 13px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .labels span {
+    background: rgba(0,0,0,.55);
+    padding: 7px 10px;
+    border-radius: 999px;
+  }
+
+  .error {
+    text-align: center;
+    color: #aaa;
+    padding: 40px;
+  }
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1 id="projectTitle"></h1>
+</header>
+
+<main id="gallery"></main>
+
+<script>
+async function loadText(path) {
+  const res = await fetch(path);
+  if (!res.ok) throw new Error(`Could not load ${path}`);
+  return await res.text();
+}
+
+async function loadGallery() {
+  const text = await loadText("gallery.txt");
+
+  const lines = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const title = lines[0] || "Gallery";
+
+  const pairs = lines.slice(1).map(line => {
+    const [before, after] = line.split("|").map(part => part.trim());
+    return { before, after };
+  }).filter(pair => pair.before && pair.after);
+
+  return { title, pairs };
+}
+
+function createSlider(pair) {
+  const wrap = document.createElement("div");
+  wrap.className = "slider-wrap";
+
+  const afterImg = document.createElement("img");
+  afterImg.className = "base-after";
+  afterImg.src = pair.after;
+  afterImg.alt = "After";
+
+  const beforeLayer = document.createElement("div");
+  beforeLayer.className = "before-layer";
+
+  const beforeImg = document.createElement("img");
+  beforeImg.src = pair.before;
+  beforeImg.alt = "Before";
+
+  const divider = document.createElement("div");
+  divider.className = "divider";
+
+  const handle = document.createElement("div");
+  handle.className = "handle";
+  handle.textContent = "↔";
+
+  const labels = document.createElement("div");
+  labels.className = "labels";
+  labels.innerHTML = "<span>Before</span><span>After</span>";
+
+  beforeLayer.appendChild(beforeImg);
+
+  wrap.appendChild(afterImg);
+  wrap.appendChild(beforeLayer);
+  wrap.appendChild(divider);
+  wrap.appendChild(handle);
+  wrap.appendChild(labels);
+
+  function updateSlider(clientX) {
+    const rect = wrap.getBoundingClientRect();
+    let percent = ((clientX - rect.left) / rect.width) * 100;
+    percent = Math.max(0, Math.min(100, percent));
+
+    beforeLayer.style.width = percent + "%";
+    divider.style.left = percent + "%";
+    handle.style.left = percent + "%";
+  }
+
+  wrap.addEventListener("mousemove", e => updateSlider(e.clientX));
+
+  wrap.addEventListener("touchmove", e => {
+    updateSlider(e.touches[0].clientX);
+  }, { passive: true });
+
+  // Removed mouseleave reset so the slider stays where it was.
+
+  return wrap;
+}
+
+async function init() {
+  const title = document.getElementById("projectTitle");
+  const gallery = document.getElementById("gallery");
+
+  try {
+    const data = await loadGallery();
+
+    document.title = data.title;
+    title.textContent = data.title;
+
+    data.pairs.forEach(pair => {
+      gallery.appendChild(createSlider(pair));
+    });
+
+  } catch (err) {
+    title.textContent = "";
+    gallery.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>
