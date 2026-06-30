@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Before / After Galleries</title>
+
+<style>
+  :root {
+    --bg: #111;
+    --panel: #1b1b1b;
+    --text: #f4f4f4;
+    --muted: #aaa;
+    --accent: #d6b36a;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  header {
+    padding: 32px 20px;
+    text-align: center;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 34px;
+  }
+
+  #projectNav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    padding: 0 20px 30px;
+  }
+
+  .project-btn {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #333;
+    padding: 12px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 15px;
+  }
+
+  .project-btn:hover,
+  .project-btn.active {
+    background: var(--accent);
+    color: #111;
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+  }
+
+  .gallery-title {
+    text-align: center;
+    font-size: 28px;
+    margin: 0 0 30px;
+  }
+
+  .slider-wrap {
+    position: relative;
+    margin-bottom: 36px;
+    overflow: hidden;
+    border-radius: 18px;
+    background: #222;
+    user-select: none;
+  }
+
+  .slider-wrap img {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+  }
+
+  .after-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    width: 50%;
+  }
+
+  .after-layer img {
+    height: 100%;
+    width: auto;
+    max-width: none;
+  }
+
+  .divider {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 3px;
+    background: white;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .handle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: white;
+    color: #111;
+    transform: translate(-50%, -50%);
+    display: grid;
+    place-items: center;
+    font-weight: bold;
+    pointer-events: none;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+  }
+
+  .labels {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px;
+    font-size: 13px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .labels span {
+    background: rgba(0,0,0,.55);
+    padding: 7px 10px;
+    border-radius: 999px;
+  }
+
+  .error {
+    text-align: center;
+    color: var(--muted);
+    padding: 40px;
+  }
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Before / After Galleries</h1>
+</header>
+
+<nav id="projectNav"></nav>
+
+<main>
+  <h2 id="galleryTitle" class="gallery-title"></h2>
+  <div id="gallery"></div>
+</main>
+
+<script>
+const PROJECTS_PATH = "Projects/projects.txt";
+
+async function loadText(path) {
+  const res = await fetch(path);
+  if (!res.ok) throw new Error(`Could not load ${path}`);
+  return await res.text();
+}
+
+async function loadProjects() {
+  const text = await loadText(PROJECTS_PATH);
+  return text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+async function loadGallery(projectFolder) {
+  const text = await loadText(`Projects/${projectFolder}/gallery.txt`);
+  const lines = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const title = lines[0] || projectFolder.replaceAll("_", " ");
+
+  const pairs = lines.slice(1).map(line => {
+    const [before, after] = line.split("|").map(part => part.trim());
+    return { before, after };
+  }).filter(pair => pair.before && pair.after);
+
+  return { title, pairs };
+}
+
+function createSlider(projectFolder, pair) {
+  const wrap = document.createElement("div");
+  wrap.className = "slider-wrap";
+
+  const beforeImg = document.createElement("img");
+  beforeImg.src = `Projects/${projectFolder}/${pair.before}`;
+  beforeImg.alt = "Before";
+
+  const afterLayer = document.createElement("div");
+  afterLayer.className = "after-layer";
+
+  const afterImg = document.createElement("img");
+  afterImg.src = `Projects/${projectFolder}/${pair.after}`;
+  afterImg.alt = "After";
+
+  const divider = document.createElement("div");
+  divider.className = "divider";
+
+  const handle = document.createElement("div");
+  handle.className = "handle";
+  handle.textContent = "↔";
+
+  const labels = document.createElement("div");
+  labels.className = "labels";
+  labels.innerHTML = "<span>Before</span><span>After</span>";
+
+  afterLayer.appendChild(afterImg);
+  wrap.appendChild(beforeImg);
+  wrap.appendChild(afterLayer);
+  wrap.appendChild(divider);
+  wrap.appendChild(handle);
+  wrap.appendChild(labels);
+
+  function updateSlider(clientX) {
+    const rect = wrap.getBoundingClientRect();
+    let percent = ((clientX - rect.left) / rect.width) * 100;
+    percent = Math.max(0, Math.min(100, percent));
+
+    afterLayer.style.width = percent + "%";
+    divider.style.left = percent + "%";
+    handle.style.left = percent + "%";
+  }
+
+  wrap.addEventListener("mousemove", e => updateSlider(e.clientX));
+  wrap.addEventListener("touchmove", e => {
+    updateSlider(e.touches[0].clientX);
+  }, { passive: true });
+
+  wrap.addEventListener("mouseleave", () => {
+    afterLayer.style.width = "50%";
+    divider.style.left = "50%";
+    handle.style.left = "50%";
+  });
+
+  return wrap;
+}
+
+async function showProject(projectFolder) {
+  const gallery = document.getElementById("gallery");
+  const title = document.getElementById("galleryTitle");
+
+  gallery.innerHTML = "";
+  title.textContent = "Loading...";
+
+  document.querySelectorAll(".project-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.project === projectFolder);
+  });
+
+  try {
+    const data = await loadGallery(projectFolder);
+    title.textContent = data.title;
+
+    if (!data.pairs.length) {
+      gallery.innerHTML = `<div class="error">No image pairs found.</div>`;
+      return;
+    }
+
+    data.pairs.forEach(pair => {
+      gallery.appendChild(createSlider(projectFolder, pair));
+    });
+  } catch (err) {
+    title.textContent = "";
+    gallery.innerHTML = `<div class="error">${err.message}</div>`;
+  }
+}
+
+async function init() {
+  const nav = document.getElementById("projectNav");
+
+  try {
+    const projects = await loadProjects();
+
+    projects.forEach(project => {
+      const btn = document.createElement("button");
+      btn.className = "project-btn";
+      btn.dataset.project = project;
+      btn.textContent = project.replaceAll("_", " ");
+      btn.addEventListener("click", () => showProject(project));
+      nav.appendChild(btn);
+    });
+
+    if (projects.length) {
+      showProject(projects[0]);
+    }
+  } catch (err) {
+    document.getElementById("gallery").innerHTML =
+      `<div class="error">${err.message}</div>`;
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Project Search</title>
+
+<style>
+  :root {
+    --bg: #111;
+    --panel: #1b1b1b;
+    --panel2: #242424;
+    --text: #f4f4f4;
+    --muted: #aaa;
+    --accent: #d6b36a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  header {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 42px 20px 24px;
+    text-align: center;
+  }
+
+  h1 {
+    margin: 0 0 18px;
+    font-size: 34px;
+    font-weight: 600;
+  }
+
+  #searchInput {
+    width: 100%;
+    max-width: 520px;
+    padding: 14px 16px;
+    border-radius: 999px;
+    border: 1px solid #333;
+    background: var(--panel);
+    color: var(--text);
+    font-size: 16px;
+    outline: none;
+  }
+
+  #searchInput:focus {
+    border-color: var(--accent);
+  }
+
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 10px 20px 60px;
+  }
+
+  #projectList {
+    display: grid;
+    gap: 14px;
+  }
+
+  .project-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 18px 20px;
+    border-radius: 16px;
+    background: var(--panel);
+    border: 1px solid #2d2d2d;
+  }
+
+  .project-name {
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .open-btn {
+    white-space: nowrap;
+    text-decoration: none;
+    background: var(--accent);
+    color: #111;
+    padding: 10px 15px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .open-btn:hover {
+    filter: brightness(1.08);
+  }
+
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 40px 10px;
+  }
+
+  @media (max-width: 520px) {
+    .project-card {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .open-btn {
+      text-align: center;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Project Search</h1>
+  <input id="searchInput" type="search" placeholder="Search projects..." autocomplete="off" />
+</header>
+
+<main>
+  <div id="projectList"></div>
+</main>
+
+<script>
+const PROJECTS_FILE = "Projects/projects.txt";
+
+const projectList = document.getElementById("projectList");
+const searchInput = document.getElementById("searchInput");
+
+let projects = [];
+
+function cleanProjectName(folderName) {
+  return folderName.replaceAll("_", " ");
+}
+
+async function loadProjects() {
+  const res = await fetch(PROJECTS_FILE);
+
+  if (!res.ok) {
+    throw new Error("Could not load Projects/projects.txt");
+  }
+
+  const text = await res.text();
+
+  projects = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(folder => ({
+      folder,
+      title: cleanProjectName(folder),
+      url: `Projects/${folder}/`
+    }));
+
+  renderProjects(projects);
+}
+
+function renderProjects(items) {
+  projectList.innerHTML = "";
+
+  if (!items.length) {
+    projectList.innerHTML = `<div class="empty">No matching projects found.</div>`;
+    return;
+  }
+
+  items.forEach(project => {
+    const card = document.createElement("div");
+    card.className = "project-card";
+
+    const name = document.createElement("div");
+    name.className = "project-name";
+    name.textContent = project.title;
+
+    const link = document.createElement("a");
+    link.className = "open-btn";
+    link.href = project.url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "Open Project";
+
+    card.appendChild(name);
+    card.appendChild(link);
+
+    projectList.appendChild(card);
+  });
+}
+
+searchInput.addEventListener("input", () => {
+  const term = searchInput.value.trim().toLowerCase();
+
+  const filtered = projects.filter(project =>
+    project.title.toLowerCase().includes(term) ||
+    project.folder.toLowerCase().includes(term)
+  );
+
+  renderProjects(filtered);
+});
+
+loadProjects().catch(err => {
+  projectList.innerHTML = `<div class="empty">${err.message}</div>`;
+});
+</script>
+
+</body>
+</html>
